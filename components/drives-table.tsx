@@ -1,5 +1,7 @@
 "use client"
 
+import { useState, useEffect } from "react"
+import { formatDistanceToNow } from "date-fns"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,70 +10,30 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MoreHorizontal, Play, Square, AlertTriangle, CheckCircle, HardDrive } from "lucide-react"
 import { WipeConfigModal } from "./wipe-config-modal"
-import { useState } from "react"
 
-const drives = [
-  {
-    id: "SSD-001",
-    name: "Samsung 970 EVO",
-    type: "NVMe SSD",
-    capacity: "1TB",
-    status: "wiping",
-    progress: 75,
-    method: "DoD 5220.22-M",
-    timeRemaining: "2h 15m",
-    client: "WS-012",
-    lastActivity: "2 min ago",
-  },
-  {
-    id: "HDD-007",
-    name: "Seagate Barracuda",
-    type: "HDD",
-    capacity: "2TB",
-    status: "warning",
-    progress: 0,
-    method: "-",
-    timeRemaining: "-",
-    client: "WS-008",
-    lastActivity: "15 min ago",
-  },
-  {
-    id: "SSD-003",
-    name: "Kingston A400",
-    type: "SATA SSD",
-    capacity: "500GB",
-    status: "completed",
-    progress: 100,
-    method: "NIST 800-88",
-    timeRemaining: "-",
-    client: "WS-015",
-    lastActivity: "1h ago",
-  },
-  {
-    id: "USB-004",
-    name: "SanDisk Ultra",
-    type: "USB 3.0",
-    capacity: "64GB",
-    status: "error",
-    progress: 0,
-    method: "-",
-    timeRemaining: "-",
-    client: "WS-003",
-    lastActivity: "3h ago",
-  },
-  {
-    id: "SSD-005",
-    name: "Crucial MX500",
-    type: "SATA SSD",
-    capacity: "1TB",
-    status: "idle",
-    progress: 0,
-    method: "-",
-    timeRemaining: "-",
-    client: "WS-021",
-    lastActivity: "5 min ago",
-  },
-]
+type ApiDisk = {
+  path: string
+  used: number
+  total: number
+  used_percent: number
+  device: string
+  FileSystem: string
+  LastTime: string
+  physical_name: string
+}
+
+type Drive = {
+  id: string
+  name: string
+  type: string
+  capacity: string
+  usedPercent: number | null
+  status: string
+  progress: number | null
+  method: string
+  client: string
+  lastActivity: string
+}
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -80,7 +42,6 @@ const getStatusIcon = (status: string) => {
     case "completed":
       return <CheckCircle className="w-4 h-4" />
     case "error":
-      return <AlertTriangle className="w-4 h-4" />
     case "warning":
       return <AlertTriangle className="w-4 h-4" />
     default:
@@ -98,16 +59,55 @@ const getStatusColor = (status: string) => {
       return "bg-red-500/10 text-red-500 border-red-500/20"
     case "warning":
       return "bg-orange-500/10 text-orange-500 border-orange-500/20"
+    case "idle":
+      return "bg-gray-500/10 text-gray-500 border-gray-500/20"
     default:
       return "bg-muted text-muted-foreground"
   }
 }
 
-export function DrivesTable() {
-  const [isWipeModalOpen, setIsWipeModalOpen] = useState(false)
-  const [selectedDriveForWipe, setSelectedDriveForWipe] = useState<(typeof drives)[0] | undefined>()
+const formatCapacity = (total: number) => {
+  if (!total || total <= 0) return "-"
+  const gb = total / 1024
+  return gb > 1024 ? `${(gb / 1024).toFixed(1)} TB` : `${gb.toFixed(1)} GB`
+}
 
-  const handleStartWipe = (drive: (typeof drives)[0]) => {
+export function DrivesTable() {
+  const [drives, setDrives] = useState<Drive[]>([])
+  const [isWipeModalOpen, setIsWipeModalOpen] = useState(false)
+  const [selectedDriveForWipe, setSelectedDriveForWipe] = useState<Drive | undefined>()
+
+  useEffect(() => {
+    const fetchDisks = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/v1/public/getdisks")
+        const data = await res.json()
+
+        const mapped: Drive[] = data.physical_disks
+          .filter((d: ApiDisk) => d.device.startsWith("/dev/")) // skip virtual mounts
+          .map((d: ApiDisk, idx: number) => ({
+            id: d.device || `disk-${idx}`,
+            name: d.physical_name,
+            type: "Local Disk",
+            capacity: formatCapacity(d.total),
+            usedPercent: d.total > 0 ? d.used_percent : null,
+            status: "idle",
+            progress: null,
+            method: "-",
+            client: "localhost",
+            lastActivity: formatDistanceToNow(new Date(d.LastTime), { addSuffix: true }),
+          }))
+
+        setDrives(mapped)
+      } catch (err) {
+        console.error("Failed to fetch drives:", err)
+      }
+    }
+
+    fetchDisks()
+  }, [])
+
+  const handleStartWipe = (drive: Drive) => {
     setSelectedDriveForWipe(drive)
     setIsWipeModalOpen(true)
   }
@@ -132,12 +132,12 @@ export function DrivesTable() {
                 <TableRow>
                   <TableHead className="min-w-[150px]">Drive</TableHead>
                   <TableHead className="min-w-[100px]">Type</TableHead>
-                  <TableHead className="min-w-[80px]">Capacity</TableHead>
+                  <TableHead className="min-w-[100px]">Capacity</TableHead>
                   <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="min-w-[100px]">Progress</TableHead>
+                  <TableHead className="min-w-[120px]">Usage</TableHead>
                   <TableHead className="min-w-[120px] hidden md:table-cell">Method</TableHead>
                   <TableHead className="min-w-[80px] hidden lg:table-cell">Client</TableHead>
-                  <TableHead className="min-w-[100px] hidden xl:table-cell">Last Activity</TableHead>
+                  <TableHead className="min-w-[120px] hidden xl:table-cell">Last Activity</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -163,10 +163,12 @@ export function DrivesTable() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {drive.progress > 0 ? (
+                      {drive.usedPercent !== null ? (
                         <div className="space-y-1">
-                          <Progress value={drive.progress} className="w-16 md:w-20" />
-                          <div className="text-xs text-muted-foreground">{drive.progress}%</div>
+                          <Progress value={drive.usedPercent} className="w-24 md:w-32" />
+                          <div className="text-xs text-muted-foreground">
+                            {drive.usedPercent.toFixed(1)}%
+                          </div>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">-</span>
