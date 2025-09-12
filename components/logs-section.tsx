@@ -70,7 +70,7 @@ export function LogsSection() {
     fetchLogs();
 
     // poll every 5 seconds
-    const interval = setInterval(fetchLogs, 5000);
+    const interval = setInterval(fetchLogs, 1000);
 
     return () => {
       isMounted = false;
