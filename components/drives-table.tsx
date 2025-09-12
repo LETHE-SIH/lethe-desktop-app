@@ -6,10 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MoreHorizontal, Play, Square, AlertTriangle, CheckCircle, HardDrive } from "lucide-react"
 import { WipeConfigModal } from "./wipe-config-modal"
+import {
+  Toast,
+  ToastClose,
+  ToastDescription,
+  ToastProvider,
+  ToastTitle,
+  ToastViewport,
+} from "@/components/ui/toast"
+import { useToast } from "@/components/ui/use-toast"
 
 type ApiDisk = {
   path: string
@@ -33,6 +47,8 @@ type Drive = {
   method: string
   client: string
   lastActivity: string
+  path: string
+  device: string
 }
 
 const getStatusIcon = (status: string) => {
@@ -76,7 +92,9 @@ export function DrivesTable() {
   const [drives, setDrives] = useState<Drive[]>([])
   const [isWipeModalOpen, setIsWipeModalOpen] = useState(false)
   const [selectedDriveForWipe, setSelectedDriveForWipe] = useState<Drive | undefined>()
+  const { toast, toasts } = useToast()
 
+  // -------------------- Fetch Disks & Poll Wipe Status --------------------
   useEffect(() => {
     const fetchDisks = async () => {
       try {
@@ -84,7 +102,7 @@ export function DrivesTable() {
         const data = await res.json()
 
         const mapped: Drive[] = data.physical_disks
-          .filter((d: ApiDisk) => d.device.startsWith("/dev/")) // skip virtual mounts
+          .filter((d: ApiDisk) => d.device.startsWith("/dev/"))
           .map((d: ApiDisk, idx: number) => ({
             id: d.device || `disk-${idx}`,
             name: d.physical_name,
@@ -96,6 +114,8 @@ export function DrivesTable() {
             method: "-",
             client: "localhost",
             lastActivity: formatDistanceToNow(new Date(d.LastTime), { addSuffix: true }),
+            path: d.path,
+            device: d.device,
           }))
 
         setDrives(mapped)
@@ -104,18 +124,110 @@ export function DrivesTable() {
       }
     }
 
+    const fetchWipeStatus = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/v1/public/wipe/status")
+        const data = await res.json() // { currentDisk, running, startedAt }
+
+        setDrives((prev) =>
+          prev.map((drive) => {
+            if (drive.device === data.currentDisk && data.running) {
+              return { ...drive, status: "wiping", progress: 50 } // progress placeholder
+            } else if (drive.status === "wiping" && drive.device !== data.currentDisk) {
+              return { ...drive, status: "idle", progress: null }
+            } else {
+              return drive
+            }
+          })
+        )
+      } catch (err) {
+        console.error("Failed to fetch wipe status:", err)
+      }
+    }
+
     fetchDisks()
+    fetchWipeStatus()
+    const interval = setInterval(() => {
+      fetchDisks()
+      fetchWipeStatus()
+    }, 5000)
+
+    return () => clearInterval(interval)
   }, [])
 
-  const handleStartWipe = (drive: Drive) => {
-    setSelectedDriveForWipe(drive)
-    setIsWipeModalOpen(true)
+  // -------------------- Handlers --------------------
+  const handleStartWipe = async (drive: Drive) => {
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/public/wipe/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disk: drive.device, wipe_mode: 0 }),
+      })
+
+      if (!res.ok) throw new Error(`Failed with status ${res.status}`)
+
+      toast({
+        title: "✅ Wipe Started",
+        description: `${drive.name} (${drive.device}) is now being wiped.`,
+        duration: 4000,
+      })
+
+      setDrives((prev) =>
+        prev.map((d) =>
+          d.id === drive.id ? { ...d, status: "wiping", progress: 0 } : d
+        )
+      )
+    } catch (err: any) {
+      console.error("Wipe error:", err)
+      toast({
+        title: "❌ Wipe Failed",
+        description: err.message || "Failed to start wipe",
+        variant: "destructive",
+        duration: 5000,
+      })
+    }
   }
 
-  const handleWipeConfig = (config: any) => {
-    console.log("[v0] Starting wipe with config:", config)
+  const handleStartEncryption = async (drive: Drive) => {
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/public/encrypt/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          drive: drive.path,
+          encrypt: true,
+          ciphers: ["AES"],
+          wipe: false,
+          wipe_mode: 0,
+          disk: drive.device,
+        }),
+      })
+
+      if (!res.ok) throw new Error(`Failed with status ${res.status}`)
+
+      toast({
+        title: "✅ Encryption Started",
+        description: `${drive.name} (${drive.device}) is now being encrypted with AES.`,
+        duration: 4000,
+      })
+
+      setDrives((prev) =>
+        prev.map((d) =>
+          d.id === drive.id ? { ...d, status: "wiping", method: "AES" } : d
+        )
+      )
+    } catch (err: any) {
+      console.error("Encryption error:", err)
+      toast({
+        title: "❌ Encryption Failed",
+        description: err.message || "Something went wrong while starting encryption.",
+        variant: "destructive",
+        duration: 5000,
+      })
+    }
   }
 
+  // -------------------- Render --------------------
   return (
     <>
       <Card className="bg-card border-border">
@@ -146,7 +258,7 @@ export function DrivesTable() {
                   <TableRow key={drive.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium text-card-foreground">{drive.id}</div>
+                        <div className="font-medium text-card-foreground">{drive.device}</div>
                         <div className="text-sm text-muted-foreground">{drive.name}</div>
                       </div>
                     </TableCell>
@@ -166,9 +278,7 @@ export function DrivesTable() {
                       {drive.usedPercent !== null ? (
                         <div className="space-y-1">
                           <Progress value={drive.usedPercent} className="w-24 md:w-32" />
-                          <div className="text-xs text-muted-foreground">
-                            {drive.usedPercent.toFixed(1)}%
-                          </div>
+                          <div className="text-xs text-muted-foreground">{drive.usedPercent.toFixed(1)}%</div>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">-</span>
@@ -184,12 +294,15 @@ export function DrivesTable() {
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleStartWipe(drive)}>Start Wipe</DropdownMenuItem>
-                          <DropdownMenuItem>Stop Wipe</DropdownMenuItem>
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Export Report</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Remove Drive</DropdownMenuItem>
+                        <DropdownMenuContent align="end" sideOffset={5} className="z-50">
+                          <DropdownMenuItem onClick={() => handleStartEncryption(drive)}>
+                            Start Encryption
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStartWipe(drive)}>
+                            Start Wipe
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {}}>Stop Encryption</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {}}>Stop Wipe</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -206,8 +319,28 @@ export function DrivesTable() {
         onClose={() => setIsWipeModalOpen(false)}
         selectedDrive={selectedDriveForWipe}
         availableDrives={drives}
-        onStartWipe={handleWipeConfig}
+        onStartWipe={() => {}}
       />
+
+      <ToastProvider>
+        {toasts.map(({ id, title, description, variant, ...props }) => {
+          const isError = variant === "destructive"
+          const baseClasses = "grid gap-1 p-4 rounded-lg shadow-lg border flex items-start justify-between"
+          const successClasses = "bg-green-500 text-white border-green-600"
+          const errorClasses = "bg-red-500 text-white border-red-600"
+
+          return (
+            <Toast key={id} {...props} className={`${baseClasses} ${isError ? errorClasses : successClasses}`}>
+              <div>
+                {title && <ToastTitle className="font-semibold">{title}</ToastTitle>}
+                {description && <ToastDescription className="text-sm opacity-90">{description}</ToastDescription>}
+              </div>
+              <ToastClose className="text-white hover:text-gray-200" />
+            </Toast>
+          )
+        })}
+        <ToastViewport className="fixed top-4 right-4 flex flex-col gap-2 z-[100]" />
+      </ToastProvider>
     </>
   )
 }

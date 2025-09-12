@@ -13,17 +13,13 @@ export const metadata: Metadata = {
   generator: "0Day",
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`}>
-        <Suspense fallback={null}>{children}</Suspense>
-        <Analytics />
-        <Toaster />
+    <html lang="en">
+      <body>
+        {children}
+        <Toaster /> {/* 👈 Mount toast system here */}
       </body>
     </html>
   )

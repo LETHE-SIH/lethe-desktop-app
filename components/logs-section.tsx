@@ -14,21 +14,16 @@ type Log = {
 };
 
 function parseLogLine(line: string, id: number): Log | null {
-  // Example line:
-  // 2025-09-11T23:06:49+05:30 INFO:Encrypted data using Serpent
-  // Split timestamp and rest
   const firstSpace = line.indexOf(" ");
   if (firstSpace === -1) return null;
   const timestamp = line.substring(0, firstSpace);
 
-  // Rest is: "INFO:Encrypted data using Serpent"
   const rest = line.substring(firstSpace + 1);
   const colonIndex = rest.indexOf(":");
   if (colonIndex === -1) return null;
   const level = rest.substring(0, colonIndex).trim();
   const message = rest.substring(colonIndex + 1).trim();
 
-  // Map log level to status for badge styling
   let status: Log["status"] = "info";
   switch (level.toUpperCase()) {
     case "ERROR":
@@ -51,19 +46,36 @@ export function LogsSection() {
   const [logs, setLogs] = useState<Log[]>([]);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/v1/public/logs")
-      .then((res) => res.json())
-      .then((data) => {
+    let isMounted = true;
+
+    const fetchLogs = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/v1/public/logs");
+        const data = await res.json();
+        if (!isMounted) return;
+
         if (data.logs && Array.isArray(data.logs)) {
           const parsedLogs = data.logs
             .map((line: string, i: number) => parseLogLine(line, i + 1))
             .filter((log): log is Log => log !== null);
+
           setLogs(parsedLogs);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Failed to fetch logs:", err);
-      });
+      }
+    };
+
+    // initial fetch
+    fetchLogs();
+
+    // poll every 5 seconds
+    const interval = setInterval(fetchLogs, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -74,37 +86,36 @@ export function LogsSection() {
       <CardContent>
         <ScrollArea className="h-64">
           <div className="space-y-3">
-            {logs.map((log) => (
-              <div
-                key={log.id}
-                className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
-              >
-                <Badge
-                  variant={
-                    log.status === "error"
-                      ? "destructive"
-                      : log.status === "warning"
-                      ? "secondary"
-                      : "default"
-                  }
-                  className="text-xs"
+            {logs.length > 0 ? (
+              logs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
                 >
-                  {log.level}
-                </Badge>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-card-foreground">
-                    {log.message}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {log.timestamp}
+                  <Badge
+                    variant={
+                      log.status === "error"
+                        ? "destructive"
+                        : log.status === "warning"
+                        ? "secondary"
+                        : "default"
+                    }
+                    className="text-xs"
+                  >
+                    {log.level}
+                  </Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-card-foreground">
+                      {log.message}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {log.timestamp}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            {logs.length === 0 && (
-              <p className="text-center text-muted-foreground">
-                No logs found.
-              </p>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">No logs found.</p>
             )}
           </div>
         </ScrollArea>

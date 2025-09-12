@@ -10,17 +10,43 @@ export function StatsCards() {
     wipe_active: false,
   });
 
-  useEffect(() => {
-    fetch("http://localhost:8080/api/v1/public/dashboard")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.physical_disks) {
-          setDashboard(data.physical_disks);
+  const fetchDashboard = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/public/dashboard");
+      const data = await res.json();
+      if (data?.physical_disks) {
+        let updatedDashboard = { ...data.physical_disks };
+
+        // ✅ if wipe_in_progress is 0, check /wipe/status
+        if (updatedDashboard.wipe_in_progress === 0) {
+          try {
+            const wipeRes = await fetch("http://localhost:8080/api/v1/public/wipe/status");
+            const wipeData = await wipeRes.json();
+            if (wipeData?.running) {
+              updatedDashboard.wipe_in_progress = 1; // set to 1 to indicate a running wipe
+              updatedDashboard.wipe_active = true; // optional: mark active
+            }
+          } catch (err) {
+            console.error("Failed to fetch wipe status:", err);
+          }
         }
-      })
-      .catch((err) => {
-        console.error("Failed to fetch dashboard data:", err);
-      });
+
+        setDashboard(updatedDashboard);
+      }
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err);
+    }
+  };
+
+  useEffect(() => {
+    // ✅ initial fetch
+    fetchDashboard();
+
+    // ✅ poll every 5 seconds
+    const interval = setInterval(fetchDashboard, 5000);
+
+    // cleanup
+    return () => clearInterval(interval);
   }, []);
 
   const stats = [
@@ -29,7 +55,7 @@ export function StatsCards() {
       value: dashboard.total_drives.toString(),
       icon: HardDrive,
       color: "text-muted-foreground",
-      trend: `+${dashboard.total_drives - 2} from last week`, // Example trend
+      trend: `+${dashboard.total_drives - 2} from last week`,
     },
     {
       title: "Drives encrypted",
