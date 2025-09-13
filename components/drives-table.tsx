@@ -126,7 +126,7 @@ export function DrivesTable() {
 
     const fetchWipeStatus = async () => {
       try {
-        const res = await fetch("https://yacht-trainers-respondents-rabbit.trycloudflare.co/api/v1/public/getdisks")
+        const res = await fetch("https://yacht-trainers-respondents-rabbit.trycloudflare.com/api/v1/public/getdisks")
         const data = await res.json() // { currentDisk, running, startedAt }
 
         setDrives((prev) =>
