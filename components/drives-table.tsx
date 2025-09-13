@@ -98,7 +98,7 @@ export function DrivesTable() {
   useEffect(() => {
     const fetchDisks = async () => {
       try {
-        const res = await fetch("http://localhost:8080/api/v1/public/getdisks")
+        const res = await fetch("http://172.20.10.3:8080/api/v1/public/getdisks")
         const data = await res.json()
 
         const mapped: Drive[] = data.physical_disks
