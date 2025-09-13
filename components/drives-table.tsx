@@ -98,7 +98,7 @@ export function DrivesTable() {
   useEffect(() => {
     const fetchDisks = async () => {
       try {
-        const res = await fetch("http://https://yacht-trainers-respondents-rabbit.trycloudflare.com/api/v1/public/getdisks")
+        const res = await fetch("https://yacht-trainers-respondents-rabbit.trycloudflare.com/api/v1/public/getdisks")
         const data = await res.json()
 
         const mapped: Drive[] = data.physical_disks
@@ -126,7 +126,7 @@ export function DrivesTable() {
 
     const fetchWipeStatus = async () => {
       try {
-        const res = await fetch("http://https://yacht-trainers-respondents-rabbit.trycloudflare.com/api/v1/public/wipe/status")
+        const res = await fetch("https://yacht-trainers-respondents-rabbit.trycloudflare.com/api/v1/public/wipe/status")
         const data = await res.json() // { currentDisk, running, startedAt }
 
         setDrives((prev) =>
