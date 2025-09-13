@@ -24,7 +24,7 @@ export function LogsStats() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("http://lethe-api.zerodev.me/api/v1/public/logsfull")
+        const res = await fetch("https://lethe-api.zerodev.me/api/v1/public/logsfull")
         const data: ApiResponse = await res.json()
 
         const mappedStats = [

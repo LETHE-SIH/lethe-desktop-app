@@ -78,7 +78,7 @@ export function LogsTable() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    fetch("http://lethe-api.zerodev.me/api/v1/public/logsfull")
+    fetch("https://lethe-api.zerodev.me/api/v1/public/logsfull")
       .then((res) => res.json())
       .then((data) => {
         const parsedLogs = data.last_n.map((raw: string, idx: number) => {
