@@ -24,7 +24,7 @@ export function DeviceInfo() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/v1/public/profile")
+    fetch("http://lethe-api.zerodev.me/api/v1/public/profile")
       .then((res) => {
         if (!res.ok) throw new Error(`Error: ${res.status}`);
         return res.json();

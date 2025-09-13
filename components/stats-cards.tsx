@@ -12,7 +12,7 @@ export function StatsCards() {
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch("http://localhost:8080/api/v1/public/dashboard");
+      const res = await fetch("http://lethe-api.zerodev.me/api/v1/public/dashboard");
       const data = await res.json();
       if (data?.physical_disks) {
         let updatedDashboard = { ...data.physical_disks };
@@ -20,7 +20,7 @@ export function StatsCards() {
         // ✅ if wipe_in_progress is 0, check /wipe/status
         if (updatedDashboard.wipe_in_progress === 0) {
           try {
-            const wipeRes = await fetch("http://localhost:8080/api/v1/public/wipe/status");
+            const wipeRes = await fetch("http://lethe-api.zerodev.me/api/v1/public/wipe/status");
             const wipeData = await wipeRes.json();
             if (wipeData?.running) {
               updatedDashboard.wipe_in_progress = 1; // set to 1 to indicate a running wipe

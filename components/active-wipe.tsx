@@ -70,7 +70,7 @@ export function ActiveWipe() {
         setStatus(null);
         return;
       }
-      fetch("http://localhost:8080/api/v1/public/encrypt/status")
+      fetch("http://lethe-api.zerodev.me/api/v1/public/encrypt/status")
         .then((res) => res.json())
         .then((data) => setStatus(data))
         .catch(() => setStatus(null));
@@ -81,7 +81,7 @@ export function ActiveWipe() {
         setDodStatus(null);
         return;
       }
-      fetch("http://localhost:8080/api/v1/public/wipe/status")
+      fetch("http://lethe-api.zerodev.me/api/v1/public/wipe/status")
         .then((res) => res.json())
         .then((data) => {
           if (data.running) {

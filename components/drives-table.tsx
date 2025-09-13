@@ -98,7 +98,7 @@ export function DrivesTable() {
   useEffect(() => {
     const fetchDisks = async () => {
       try {
-        const res = await fetch("https://yacht-trainers-respondents-rabbit.trycloudflare.com/api/v1/public/getdisks")
+        const res = await fetch("https://lethe-api.zerodev.me/api/v1/public/getdisks")
         const data = await res.json()
 
         const mapped: Drive[] = data.physical_disks
@@ -126,7 +126,7 @@ export function DrivesTable() {
 
     const fetchWipeStatus = async () => {
       try {
-        const res = await fetch("https://yacht-trainers-respondents-rabbit.trycloudflare.com/api/v1/public/wipe/status")
+        const res = await fetch("https://lethe-api.zerodev.me/api/v1/public/wipe/status")
         const data = await res.json() // { currentDisk, running, startedAt }
 
         setDrives((prev) =>
@@ -158,7 +158,7 @@ export function DrivesTable() {
   // -------------------- Handlers --------------------
   const handleStartWipe = async (drive: Drive) => {
     try {
-      const res = await fetch("http://localhost:8080/api/v1/public/wipe/start", {
+      const res = await fetch("https://lethe-api.zerodev.me/api/v1/public/wipe/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ disk: drive.device, wipe_mode: 0 }),
@@ -190,7 +190,7 @@ export function DrivesTable() {
 
   const handleStartEncryption = async (drive: Drive) => {
     try {
-      const res = await fetch("http://localhost:8080/api/v1/public/encrypt/start", {
+      const res = await fetch("https://lethe-api.zerodev.me/api/v1/public/encrypt/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

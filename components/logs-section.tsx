@@ -50,7 +50,7 @@ export function LogsSection() {
 
     const fetchLogs = async () => {
       try {
-        const res = await fetch("http://localhost:8080/api/v1/public/logs");
+        const res = await fetch("http://lethe-api.zerodev.me/api/v1/public/logs");
         const data = await res.json();
         if (!isMounted) return;
 
