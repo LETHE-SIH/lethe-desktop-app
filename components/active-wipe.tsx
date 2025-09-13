@@ -56,7 +56,7 @@ export function ActiveWipe() {
     let elapsedInterval: NodeJS.Timer;
 
     const fetchDashboard = () => {
-      fetch("http://lethe-api.zerodev.me/api/v1/public/dashboard")
+      fetch("https://lethe-api.zerodev.me/api/v1/public/dashboard")
         .then((res) => res.json())
         .then((data) => {
           setDashboard({ ...data.physical_disks });
@@ -70,7 +70,7 @@ export function ActiveWipe() {
         setStatus(null);
         return;
       }
-      fetch("http://lethe-api.zerodev.me/api/v1/public/encrypt/status")
+      fetch("https://lethe-api.zerodev.me/api/v1/public/encrypt/status")
         .then((res) => res.json())
         .then((data) => setStatus(data))
         .catch(() => setStatus(null));
